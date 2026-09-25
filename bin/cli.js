@@ -279,7 +279,7 @@ async function main() {
   const n = plan.length;
   const tools = [...done].map((a) => AGENTS[a].label).join(" and ");
   p.note(
-    [...done].map((a) => `${AGENTS[a].label}: ${c.bold(AGENTS[a].invoke(first))} Grab — Senior Product Designer interview next week`).join("\n"),
+    [...done].map((a) => `${AGENTS[a].label}: ${c.bold(AGENTS[a].invoke(first))} Grab — Senior Product Designer interview`).join("\n"),
     "Try it"
   );
   p.outro(`Done. Installed ${n} skill${n > 1 ? "s" : ""} for ${tools}.`);
