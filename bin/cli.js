@@ -1,22 +1,25 @@
 #!/usr/bin/env node
-// wh-skills — install Claude skills into a project or globally.
-// No dependencies. Node 18+.
+// wh-skills — install agent skills for Claude Code and Codex, in a project or globally.
+// Node 20.12+. The interactive menu uses @clack/prompts.
 
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
-const readline = require("readline");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import * as p from "@clack/prompts";
 
-const SKILLS_DIR = path.join(__dirname, "..", "skills");
-const PKG = require(path.join(__dirname, "..", "package.json"));
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const SKILLS_DIR = path.join(ROOT, "skills");
+const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
 
 const c = {
   bold: (s) => `\x1b[1m${s}\x1b[0m`,
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
-  green: (s) => `\x1b[32m${s}\x1b[0m`,
-  yellow: (s) => `\x1b[33m${s}\x1b[0m`,
+  cyan: (s) => `\x1b[36m${s}\x1b[0m`,
   red: (s) => `\x1b[31m${s}\x1b[0m`,
 };
+
+const tildify = (p) => (p.startsWith(os.homedir()) ? "~" + p.slice(os.homedir().length) : p);
 
 // ---------- skills catalog ----------
 
@@ -83,6 +86,8 @@ ${c.bold("Options")}
   -y, --yes        Overwrite existing skills without asking
   -h, --help       Show this help
 
+The menu needs a terminal. In scripts, pass a skill, a tool and a place.
+
 ${c.bold("Examples")}
   npx wh-skills wh-company-brief --claude --global
   npx wh-skills wh-company-brief --codex --global
@@ -97,35 +102,13 @@ function fail(msg) {
 
 // ---------- prompts ----------
 
-// Line-buffered prompt: works in a terminal and with piped answers.
-let rl;
-const lines = [];
-const waiting = [];
-let ended = false;
-function initPrompt() {
-  if (rl) return;
-  rl = readline.createInterface({ input: process.stdin, terminal: false });
-  rl.on("line", (l) => (waiting.length ? waiting.shift()(l) : lines.push(l)));
-  rl.on("close", () => {
-    ended = true;
-    while (waiting.length) waiting.shift()("");
-  });
-}
-function ask(q) {
-  initPrompt();
-  process.stdout.write(q);
-  return new Promise((res) => {
-    const done = (a) => {
-      if (!process.stdin.isTTY) process.stdout.write(a + "\n");
-      res(a.trim());
-    };
-    if (lines.length) done(lines.shift());
-    else if (ended) done("");
-    else waiting.push(done);
-  });
-}
-function closePrompt() {
-  if (rl) rl.close();
+// Every prompt returns a cancel symbol on Ctrl+C or Esc.
+function orExit(value) {
+  if (p.isCancel(value)) {
+    p.cancel("Install cancelled.");
+    process.exit(0);
+  }
+  return value;
 }
 
 const AGENTS = {
@@ -133,42 +116,58 @@ const AGENTS = {
   codex: { label: "Codex", dir: ".agents", invoke: (n) => `$${n}` },
 };
 
+async function chooseSkills(all) {
+  const short = (s) => (s.length > 70 ? s.slice(0, 67) + "…" : s);
+  return orExit(
+    await p.multiselect({
+      message: "Which skills do you want?",
+      options: all.map((s) => ({ value: s.id, label: s.id, hint: short(s.description) })),
+      initialValues: all.map((s) => s.id),
+      required: true,
+    })
+  );
+}
+
 async function chooseAgents() {
   const hasClaude = fs.existsSync(path.join(os.homedir(), ".claude"));
   const hasCodex = fs.existsSync(path.join(os.homedir(), ".codex"));
-  const def = hasClaude && hasCodex ? "3" : hasCodex ? "2" : "1";
-  console.log(`\n${c.bold("Which tool?")}`);
-  console.log(`  1) Claude Code`);
-  console.log(`  2) Codex`);
-  console.log(`  3) Both`);
-  const a = (await ask(c.dim(`Choose 1, 2 or 3 [${def}]: `))) || def;
-  return a === "3" ? ["claude", "codex"] : a === "2" ? ["codex"] : ["claude"];
+  const choice = orExit(
+    await p.select({
+      message: "Which tool do you use?",
+      options: [
+        { value: "claude", label: "Claude Code" },
+        { value: "codex", label: "Codex" },
+        { value: "both", label: "Both" },
+      ],
+      initialValue: hasClaude && hasCodex ? "both" : hasCodex ? "codex" : "claude",
+    })
+  );
+  return choice === "both" ? ["claude", "codex"] : [choice];
 }
 
-async function chooseScope(agents) {
-  console.log(`\n${c.bold("Where do you want to install?")}`);
-  const dirs = agents.map((a) => AGENTS[a].dir);
-  console.log(`  1) Globally        ${c.dim(dirs.map((d) => `~/${d}/skills`).join(", ") + "  — every project")}`);
-  console.log(`  2) This project    ${c.dim(dirs.map((d) => `./${d}/skills`).join(", ") + "  — " + process.cwd())}`);
-  const a = await ask(c.dim("Choose 1 or 2 [1]: "));
-  return a === "2" ? "project" : "global";
+async function chooseScope() {
+  return orExit(
+    await p.select({
+      message: "Where do you want to install these skills?",
+      options: [
+        { value: "global", label: "Globally", hint: "every project" },
+        { value: "project", label: "This project", hint: tildify(process.cwd()) },
+      ],
+      initialValue: "global",
+    })
+  );
 }
 
-async function chooseSkills(all) {
-  console.log(`\n${c.bold("Which skills?")}`);
-  all.forEach((s, i) => {
-    const desc = s.description.length > 90 ? s.description.slice(0, 87) + "…" : s.description;
-    console.log(`  ${i + 1}) ${c.bold(s.id)}\n     ${c.dim(desc)}`);
-  });
-  const a = await ask(c.dim(`Enter numbers separated by commas, or "all" [all]: `));
-  if (!a || a.toLowerCase() === "all") return all.map((s) => s.id);
-  const picked = a
-    .split(/[,\s]+/)
-    .map((n) => parseInt(n, 10) - 1)
-    .filter((i) => i >= 0 && i < all.length)
-    .map((i) => all[i].id);
-  if (!picked.length) fail("No valid skills selected.");
-  return [...new Set(picked)];
+async function chooseName(id) {
+  const name = orExit(
+    await p.text({
+      message: `Name for ${id}`,
+      placeholder: `${id}  (press Return to keep)`,
+      defaultValue: id,
+      validate: (v) => (!v || validName(v) ? undefined : "Use lowercase letters, numbers and hyphens only."),
+    })
+  );
+  return name || id;
 }
 
 // ---------- install ----------
@@ -194,24 +193,26 @@ function renameInSkillFile(file, oldName, newName) {
   fs.writeFileSync(file, text);
 }
 
-async function installOne(id, targetName, baseDir, overwrite) {
+async function installOne(id, targetName, baseDir, agent, { overwrite, tty }) {
   const src = path.join(SKILLS_DIR, id);
   const dest = path.join(baseDir, targetName);
+  const label = AGENTS[agent].label;
   if (fs.existsSync(dest)) {
     let ok = overwrite;
-    if (!ok) {
-      const a = await ask(c.yellow(`? ${targetName} already exists. Overwrite? (y/N) `));
-      ok = /^y(es)?$/i.test(a);
+    if (!ok && tty) {
+      ok = orExit(
+        await p.confirm({ message: `${targetName} already exists in ${tildify(baseDir)}. Overwrite it?`, initialValue: false })
+      );
     }
     if (!ok) {
-      console.log(c.dim(`  skipped ${targetName}`));
+      p.log.warn(`${label}: skipped ${targetName}${tty ? "" : " (it exists; add --yes to overwrite)"}`);
       return false;
     }
     fs.rmSync(dest, { recursive: true, force: true });
   }
   copyDir(src, dest);
   if (targetName !== id) renameInSkillFile(path.join(dest, "SKILL.md"), id, targetName);
-  console.log(`${c.green("✔")} ${c.bold(targetName)} ${c.dim("→ " + dest)}`);
+  p.log.success(`${label}: ${c.bold(targetName)} ${c.dim("→ " + tildify(dest))}`);
   return true;
 }
 
@@ -227,70 +228,55 @@ async function main() {
     return;
   }
 
-  console.log(`\n${c.bold("wh-skills")} ${c.dim("v" + PKG.version)}`);
-
-  // Which skills
-  let chosen = opts.skills;
-  if (chosen.length) {
-    const unknown = chosen.filter((s) => !all.find((a) => a.id === s));
+  if (opts.skills.length) {
+    const unknown = opts.skills.filter((s) => !all.find((a) => a.id === s));
     if (unknown.length) fail(`Unknown skill: ${unknown.join(", ")}. Run "npx wh-skills --list" to see all skills.`);
-  } else {
-    chosen = await chooseSkills(all);
   }
-
-  if (opts.as && chosen.length !== 1) fail("--as works with exactly one skill.");
+  if (opts.as && opts.skills.length !== 1) fail("--as works with exactly one skill.");
   if (opts.as && !validName(opts.as)) fail("Skill names use lowercase letters, numbers and hyphens only.");
 
-  // Which tool and where
-  const agents = opts.agents || (await chooseAgents());
-  const scope = opts.scope || (await chooseScope(agents));
-  const root = scope === "global" ? os.homedir() : process.cwd();
-  const targets = agents.map((a) => ({ agent: a, dir: path.join(root, AGENTS[a].dir, "skills") }));
-  for (const t of targets) fs.mkdirSync(t.dir, { recursive: true });
-
-  // Names (rename during install)
-  const interactive = !opts.skills.length && !opts.as;
-  const plan = [];
-  for (const id of chosen) {
-    let target = opts.as || id;
-    if (interactive) {
-      const a = await ask(c.dim(`Name for ${c.bold(id)} [${id}]: `));
-      if (a) {
-        if (!validName(a)) fail("Skill names use lowercase letters, numbers and hyphens only.");
-        target = a;
-      }
-    }
-    plan.push([id, target]);
+  // The menu needs a real terminal. Without one, every choice must come from flags.
+  const tty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  if (!tty && (!opts.skills.length || !opts.agents || !opts.scope)) {
+    fail(
+      "No terminal for the menu. Pass a skill, a tool and a place, for example:\n" +
+        "  npx wh-skills wh-company-brief --claude --global"
+    );
   }
 
-  console.log("");
+  p.intro(`${c.cyan("wh-skills")} installer ${c.dim("v" + PKG.version)}`);
+
+  const chosen = opts.skills.length ? opts.skills : await chooseSkills(all);
+  const agents = opts.agents || (await chooseAgents());
+  const scope = opts.scope || (await chooseScope());
+  const root = scope === "global" ? os.homedir() : process.cwd();
+  const targets = agents.map((a) => ({ agent: a, dir: path.join(root, AGENTS[a].dir, "skills") }));
+
+  // Names (rename during install) only when the skills came from the menu.
+  const askNames = tty && !opts.skills.length;
+  const plan = [];
+  for (const id of chosen) plan.push([id, opts.as || (askNames ? await chooseName(id) : id)]);
+
+  for (const t of targets) fs.mkdirSync(t.dir, { recursive: true });
   let count = 0;
   const done = new Set();
-  for (const t of targets) {
-    console.log(c.dim(`${AGENTS[t.agent].label}:`));
+  for (const t of targets)
     for (const [id, target] of plan)
-      if (await installOne(id, target, t.dir, opts.yes)) {
+      if (await installOne(id, target, t.dir, t.agent, { overwrite: opts.yes, tty })) {
         count++;
         done.add(t.agent);
       }
-  }
-  closePrompt();
 
-  if (count) {
-    const first = plan[0][1];
-    const n = plan.length;
-    const tools = [...done].map((a) => AGENTS[a].label).join(" and ");
-    console.log(`\n${c.green("Done.")} Installed ${n} skill${n > 1 ? "s" : ""} for ${tools}.`);
-    for (const a of done) {
-      const cmd = AGENTS[a].invoke(first);
-      console.log(`${AGENTS[a].label}: type ${c.bold(cmd)} — for example:`);
-      console.log(c.dim(`  ${cmd} Grab — Senior Product Designer interview next week`));
-    }
-    console.log("");
-  }
+  if (!count) return p.outro("Nothing installed.");
+
+  const first = plan[0][1];
+  const n = plan.length;
+  const tools = [...done].map((a) => AGENTS[a].label).join(" and ");
+  p.note(
+    [...done].map((a) => `${AGENTS[a].label}: ${c.bold(AGENTS[a].invoke(first))} Grab — Senior Product Designer interview next week`).join("\n"),
+    "Try it"
+  );
+  p.outro(`Done. Installed ${n} skill${n > 1 ? "s" : ""} for ${tools}.`);
 }
 
-main().catch((e) => {
-  closePrompt();
-  fail(e.message || String(e));
-});
+main().catch((e) => fail(e.message || String(e)));

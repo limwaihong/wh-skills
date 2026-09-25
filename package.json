@@ -1,6 +1,6 @@
 {
   "name": "wh-skills",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "description": "Install Lim Wai Hong's agent skills (like wh-company-brief) into Claude Code or Codex with one command.",
   "bin": {
     "wh-skills": "bin/cli.js"
@@ -35,6 +35,10 @@
   },
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.12"
+  },
+  "type": "module",
+  "dependencies": {
+    "@clack/prompts": "^1.8.1"
   }
 }

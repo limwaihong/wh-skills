@@ -13,11 +13,13 @@ Skills that make life easier. Free and open source agent skills by Lim Wai Hong 
 npx wh-skills
 ```
 
-Choose Claude Code, Codex or both. Then choose the current project or all projects, and pick the skills you want. You can rename a skill during install, or install one skill directly:
+Pick the skills you want. Then choose Claude Code, Codex or both, and all projects or the current project. Use the arrow keys to move, Space to select, and Return to confirm. You can rename a skill during install, or install one skill directly:
 
 ```bash
 npx wh-skills wh-company-brief
 ```
+
+Needs Node.js 20.12 or later.
 
 **Using the Claude app (desktop, web or mobile)?** Download [wh-company-brief.zip](https://github.com/limwaihong/wh-skills/releases/latest/download/wh-company-brief.zip). In Claude, go to **Customize → Skills → + → Create skill → Upload a skill**, and upload the ZIP.
 
@@ -70,6 +72,8 @@ Add a job link or your resume for a more personal brief. In Claude Code and Code
 | `--as <name>` | Install one skill under a new name |
 | `-y`, `--yes` | Overwrite existing skills without asking |
 | `-l`, `--list` | Show available skills |
+
+The menu needs a terminal. In a script, pass a skill, a tool and a place, for example `npx wh-skills wh-company-brief --claude --global --yes`.
 
 ## Feedback
 
