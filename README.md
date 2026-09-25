@@ -27,7 +27,7 @@ Needs Node.js 20.12 or later.
 
 | Skill | What it does |
 |---|---|
-| `wh-company-brief` | Turns a company name, job link or job description into a sourced quick brief: how the company makes money, recent news, growth and caution signals, competitors, talking points and stories to prepare. Covers the US, Malaysia, Singapore, China and Southeast Asia. |
+| `wh-company-brief` | Turns a company name, job link or job description into a sourced quick brief: how the company makes money, recent news, growth and caution signals, competitors, talking points and stories to prepare. |
 
 ## Use it
 
