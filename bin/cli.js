@@ -158,10 +158,16 @@ async function chooseScope() {
   );
 }
 
+async function wantsRename(count) {
+  return orExit(
+    await p.confirm({ message: `Do you want to rename the skill${count > 1 ? "s" : ""}?`, initialValue: false })
+  );
+}
+
 async function chooseName(id) {
   const name = orExit(
     await p.text({
-      message: `Name for ${id}`,
+      message: `New name for ${id}`,
       placeholder: `${id}  (press Return to keep)`,
       defaultValue: id,
       validate: (v) => (!v || validName(v) ? undefined : "Use lowercase letters, numbers and hyphens only."),
@@ -253,7 +259,7 @@ async function main() {
   const targets = agents.map((a) => ({ agent: a, dir: path.join(root, AGENTS[a].dir, "skills") }));
 
   // Names (rename during install) only when the skills came from the menu.
-  const askNames = tty && !opts.skills.length;
+  const askNames = tty && !opts.skills.length && (await wantsRename(chosen.length));
   const plan = [];
   for (const id of chosen) plan.push([id, opts.as || (askNames ? await chooseName(id) : id)]);
 
