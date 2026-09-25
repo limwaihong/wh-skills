@@ -34,13 +34,13 @@ Needs Node.js 20.12 or later.
 Claude Code:
 
 ```
-/wh-company-brief Grab — Senior Product Designer interview next week
+/wh-company-brief Grab — Senior Product Designer interview
 ```
 
 Codex (turn on web search, so the brief can use live sources):
 
 ```
-$wh-company-brief Grab — Senior Product Designer interview next week
+$wh-company-brief Grab — Senior Product Designer interview
 ```
 
 Claude app: type `/wh-company-brief Grab`, or ask "brief me on Grab".
