@@ -1,6 +1,6 @@
 # wh-skills
 
-Skills that make life easier. Free and open source agent skills by [Kevin Lim](https://www.limwaihong.com), for Claude Code, Codex and the Claude app.
+Skills that make life easier. Free and open source agent skills by Lim Wai Hong (https://www.limwaihong.com), for Claude Code, Codex and the Claude app.
 
 [![npm version](https://img.shields.io/npm/v/wh-skills.svg)](https://www.npmjs.com/package/wh-skills)
 [![npm downloads](https://img.shields.io/npm/dm/wh-skills.svg)](https://www.npmjs.com/package/wh-skills)
@@ -79,4 +79,4 @@ If a skill saves you time, a ⭐ on this repo helps other people find it.
 
 ## License
 
-[MIT](LICENSE) © 2026 Kevin Lim (TableForTwo Design Studio)
+[MIT](LICENSE) © 2026 Lim Wai Hong (TableForTwo Design Studio)
