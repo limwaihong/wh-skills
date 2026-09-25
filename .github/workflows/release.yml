@@ -1,10 +1,11 @@
-# When you publish a GitHub Release (tag like v0.1.5):
+# When you publish a GitHub Release (tag like v0.2.0):
 # 1. Checks the tag matches the version in package.json
-# 2. Publishes the package to npm
+# 2. Publishes the package to npm, unless that version is already on npm
 # 3. Attaches one ZIP per skill to the Release (for Claude app users)
 #
-# One-time setup: add an npm access token as a repo secret named NPM_TOKEN
-# (GitHub repo → Settings → Secrets and variables → Actions → New repository secret).
+# npm publish uses trusted publishing (OIDC), so no npm token is stored.
+# One-time setup on npmjs.com: wh-skills → Settings → Trusted publishing →
+# GitHub Actions, with user limwaihong, repo wh-skills, workflow release.yml.
 
 name: Release
 
@@ -20,12 +21,14 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      # Trusted publishing needs Node 22.14+ and npm 11.5.1+.
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
 
       - name: Check tag matches package.json version
         run: |
@@ -36,10 +39,16 @@ jobs:
             exit 1
           fi
 
+      # A version published from a maintainer's machine is skipped, so the ZIPs still attach.
       - name: Publish to npm
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          NAME="$(node -p "require('./package.json').name")"
+          VERSION="$(node -p "require('./package.json').version")"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is already on npm. Skipping publish."
+          else
+            npm publish --access public
+          fi
 
       - name: Build skill ZIPs
         run: |
