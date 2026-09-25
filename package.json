@@ -1,6 +1,6 @@
 {
   "name": "wh-skills",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Install Lim Wai Hong's agent skills (like wh-company-brief) into Claude Code or Codex with one command.",
   "bin": {
     "wh-skills": "bin/cli.js"
@@ -21,7 +21,7 @@
     "interview-prep"
   ],
   "author": {
-    "name": "Lim Wai Hong (TableForTwo Design Studio)",
+    "name": "Lim Wai Hong, TableForTwo Design Studio",
     "url": "https://www.limwaihong.com"
   },
   "homepage": "https://github.com/limwaihong/wh-skills#readme",
